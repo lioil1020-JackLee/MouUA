@@ -2,26 +2,27 @@
 import os
 import sys
 
-# 動態檢查圖示檔案
-# Windows: lioil.ico，macOS: lioil.icns
-datas_list = []
+# [cite_start]整合資源清單 [cite: 22]
+datas_list = [
+    ('ui', 'ui'),
+    ('images', 'images'),
+    ('core', 'core'),
+    ('certs', 'certs')
+)
 
-# 根據運行平台選擇圖示
-if sys.platform == 'darwin':  # macOS
-    if os.path.exists('lioil.icns'):
-        datas_list.append(('lioil.icns', '.'))
-else:  # Windows
-    if os.path.exists('lioil.ico'):
-        datas_list.append(('lioil.ico', '.'))
+# 根據平台設定名稱
+app_name = 'ModUA-macos-onefile' if sys.platform == 'darwin' else 'ModUA-onefile'
 
-# 設定 EXE 圖示參數
-icon_param = []
+# 圖示邏輯
+icon_param = None
 if sys.platform == 'darwin':
     if os.path.exists('lioil.icns'):
-        icon_param = ['lioil.icns']
+        datas_list.insert(0, ('lioil.icns', '.'))
+        icon_param = 'lioil.icns'
 else:
     if os.path.exists('lioil.ico'):
-        icon_param = ['lioil.ico']
+        datas_list.insert(0, ('lioil.ico', '.'))
+        icon_param = 'lioil.ico'
 
 a = Analysis(
     ['ModUA.py'],
@@ -41,30 +42,15 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
+    [cite_start]a.binaries, # Onefile 模式包含二進位檔 [cite: 20]
+    a.datas,
     [],
-    exclude_binaries=True,
-    name='ModUA',
+    name=app_name,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
     icon=icon_param,
-)
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='ModUA'
 )
