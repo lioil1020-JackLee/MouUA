@@ -2,18 +2,17 @@
 import os
 import sys
 
-# [cite_start]整合資源清單 [cite: 22]
+# 資源路徑整合 
 datas_list = [
     ('ui', 'ui'),
     ('images', 'images'),
     ('core', 'core'),
     ('certs', 'certs')
-)
+]
 
-# 根據平台設定名稱
+# Windows 端名稱設定為 ModUA-onefile 
 app_name = 'ModUA-macos-onefile' if sys.platform == 'darwin' else 'ModUA-onefile'
 
-# 圖示邏輯
 icon_param = None
 if sys.platform == 'darwin':
     if os.path.exists('lioil.icns'):
@@ -42,7 +41,7 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
-    [cite_start]a.binaries, # Onefile 模式包含二進位檔 [cite: 20]
+    a.binaries,
     a.datas,
     [],
     name=app_name,

@@ -21,8 +21,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          lfs: true
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -38,7 +36,7 @@ jobs:
           uv pip install pyinstaller
           if [ -f requirements.txt ]; then uv pip install -r requirements.txt; fi
 
-      # --- Windows 專用編譯步驟 ---
+      # --- Windows 編譯步驟 ---
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
@@ -46,12 +44,11 @@ jobs:
           uv run pyinstaller ModUA-${{ matrix.build_type }}.spec
           if ("${{ matrix.build_type }}" -eq "onedir") {
             cd dist
-            # 動態抓取編譯出的資料夾並壓縮，解決 Windows 沒 zip 的問題
             $target = Get-ChildItem -Directory | Select-Object -First 1 -ExpandProperty Name
             Compress-Archive -Path "$target" -DestinationPath "ModUA-Windows-onedir.zip" -Force
           }
 
-      # --- macOS 專用編譯步驟 ---
+      # --- macOS 編譯步驟 ---
       - name: Build (macOS)
         if: matrix.os == 'macos-latest'
         shell: bash
@@ -59,11 +56,9 @@ jobs:
           uv run pyinstaller ModUA-${{ matrix.build_type }}.spec
           cd dist
           if [ "${{ matrix.build_type }}" == "onedir" ]; then
-            # macOS .app 實際上是資料夾，必須壓縮
             targetDir=$(find . -maxdepth 1 -type d -not -path "." | head -n 1)
             zip -r ModUA-macOS-onedir.zip "$targetDir"
           else
-            # 針對 onefile 模式進行壓縮
             targetFile=$(find . -maxdepth 1 -type f -not -name "*.zip" | head -n 1)
             zip ModUA-macOS-onefile.zip "$targetFile"
           fi
@@ -91,7 +86,6 @@ jobs:
         shell: bash
         run: |
           mkdir -p final_assets
-          # 只收集 zip 和 exe，確保 Release 乾淨且快速
           find raw_artifacts -type f \( -name "ModUA-*.zip" -o -name "ModUA-*.exe" \) -exec cp {} final_assets/ \;
           ls -lh final_assets/
 
@@ -101,8 +95,5 @@ jobs:
           files: final_assets/*
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
-          body: |
-            ## ModUA ${{ github.ref_name }} Release
-            此版本包含跨平台自動編譯產物。
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

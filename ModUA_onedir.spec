@@ -2,7 +2,7 @@
 import os
 import sys
 
-# [cite_start]整合原本寫在 YAML 裡的資源清單 [cite: 19]
+# 修正：直接將原本寫在 YAML 的資源整合進來 
 datas_list = [
     ('ui', 'ui'),
     ('images', 'images'),
@@ -10,10 +10,10 @@ datas_list = [
     ('certs', 'certs')
 ]
 
-# 根據平台設定名稱
+# 根據平台設定名稱，Windows 端加上 -onedir 以示區別 [cite: 10]
 app_name = 'ModUA-macos' if sys.platform == 'darwin' else 'ModUA-onedir'
 
-# 圖示邏輯
+# 圖示邏輯修正
 icon_param = None
 if sys.platform == 'darwin':
     if os.path.exists('lioil.icns'):
@@ -43,7 +43,7 @@ exe = EXE(
     pyz,
     a.scripts,
     [],
-    [cite_start]exclude_binaries=True, # Onedir 模式不包含二進位檔 [cite: 24]
+    exclude_binaries=True,
     name=app_name,
     debug=False,
     bootloader_ignore_signals=False,
