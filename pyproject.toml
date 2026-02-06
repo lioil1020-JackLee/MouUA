@@ -1,0 +1,21 @@
+[project]
+name = "modua"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "asyncua==1.1.8",
+    "psutil==7.2.0",
+    "pymodbus==3.11.4",
+    "pyqt6==6.10.1",
+    "pyqt6-qt6==6.10.1",
+    "pyqt6-sip==13.10.3",
+    "pyserial==3.5",
+    "qasync==0.28.0",
+]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.18.0",
+]
