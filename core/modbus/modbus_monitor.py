@@ -709,6 +709,10 @@ class RuntimeMonitor:
                     quality = "Good" if elem_value is not None else "Bad"
                     update_count = self._update_counts[array_tag_name]
                     
+                    # DEBUG: Log array element emission
+                    if idx < 3:  # Log first 3 elements
+                        logger.debug(f"[EMIT_ARRAY_ELEM] {array_tag_name} = {elem_value} (quality={quality})")
+                    
                     # Emit signal for this array element
                     if self.signals and hasattr(self.signals, 'tag_updated'):
                         self.signals.tag_updated.emit(array_tag_name, elem_value, timestamp, quality, update_count)
@@ -720,6 +724,10 @@ class RuntimeMonitor:
                 # Determine quality (simple: "Good" if value is not None, "Bad" otherwise)
                 quality = "Good" if scaled_value is not None else "Bad"
                 update_count = self._update_counts[tag_name]
+                
+                # DEBUG: Log if is_array but value is not list/tuple
+                if is_array and not isinstance(scaled_value, (list, tuple)):
+                    logger.warning(f"[ARRAY_MISMATCH] {tag_name} has is_array=True but scaled_value is {type(scaled_value).__name__}: {scaled_value}")
                 
                 # Emit signal through Qt bridge (thread-safe)
                 # Use try-except to handle case where signal object was deleted

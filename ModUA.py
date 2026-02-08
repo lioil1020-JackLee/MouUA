@@ -127,6 +127,7 @@ class IoTApp(QMainWindow):
 
         # 初始化主窗口
         self.setWindowTitle("ModUA")
+        self.current_project_name = "Project"  # Store the current project name for title display
         # 支持跨平台圖標（macOS 優先，Windows 次之）
         icon_path = None
         if sys.platform == "darwin":  # macOS
@@ -358,6 +359,7 @@ class IoTApp(QMainWindow):
                     try:
                         self._call_controller("import_project_from_json", last_path)
                         self.current_project_path = last_path
+                        self._update_window_title(last_path)  # Update title when loading last project
                         loaded = True
                     except Exception:
                         pass
@@ -367,6 +369,7 @@ class IoTApp(QMainWindow):
                 try:
                     self._call_controller("import_project_from_json", self._temp_json)
                     self.current_project_path = None
+                    # Keep default "Project" title for temp.json
                     loaded = True
                 except Exception:
                     loaded = False
@@ -383,6 +386,7 @@ class IoTApp(QMainWindow):
                         try:
                             self._call_controller("import_project_from_json", sample)
                             self.current_project_path = sample
+                            self._update_window_title(sample)  # Update title when loading sample project
                             loaded = True
                         except Exception:
                             loaded = loaded
@@ -4637,6 +4641,22 @@ class IoTApp(QMainWindow):
 
         return
 
+    def _update_window_title(self, project_name=None):
+        """Update window title with project name.
+        
+        Args:
+            project_name: Project name or file name without extension. If None, use current_project_name.
+        """
+        if project_name:
+            # Extract filename without extension if it's a path
+            if os.path.sep in project_name or "/" in project_name:
+                project_name = os.path.splitext(os.path.basename(project_name))[0]
+            self.current_project_name = project_name
+        else:
+            project_name = self.current_project_name
+        
+        self.setWindowTitle(f"ModUA - {project_name}")
+
     # --- Project file operations (minimal implementations) ---
     def new_project(self):
         # 建立一個全新的專案（清空 Connectivity tree）。
@@ -4654,16 +4674,10 @@ class IoTApp(QMainWindow):
             except Exception:
                 break
         self.current_project_path = None
-        try:
-            if getattr(self, "_last_project_file", None) and os.path.exists(
-                self._last_project_file
-            ):
-                try:
-                    os.remove(self._last_project_file)
-                except Exception:
-                    pass
-        except Exception:
-            pass
+        self._update_window_title("Project")  # Update window title when creating new project
+        # Note: We keep last_project.txt intact so the project name is remembered
+        # even if the user doesn't save. This provides better UX where the project
+        # name persists across new_project() calls.
         try:
             self._mark_dirty(False)
         except Exception:
@@ -4715,6 +4729,7 @@ class IoTApp(QMainWindow):
                 except Exception:
                     pass
             self.current_project_path = path
+            self._update_window_title(path)  # Update window title with project name
             pass
             # 成功開啟專案後，記錄 last project 路徑並同步建立 temp.json 以便下次快速回復
             try:
@@ -4791,7 +4806,9 @@ class IoTApp(QMainWindow):
         import os
         from PyQt6.QtWidgets import QApplication
 
-        desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", "Project.json")
+        # Use current project name from window title as default filename
+        default_filename = f"{self.current_project_name}.json"
+        desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", default_filename)
         path, _ = QFileDialog.getSaveFileName(
             self, "Save Project As", desktop_path, "JSON Files (*.json)"
         )
@@ -4804,6 +4821,7 @@ class IoTApp(QMainWindow):
             QApplication.processEvents()
             self._call_controller("export_project_to_json", path)
             self.current_project_path = path
+            self._update_window_title(path)  # Update window title with new project name
             try:
                 # 成功另存後更新 last_project.txt 與 temp.json
                 if getattr(self, "_last_project_file", None):

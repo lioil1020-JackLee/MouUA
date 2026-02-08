@@ -979,10 +979,39 @@ class ModbusClient:
             if fc in (1, 2):
                 bits = getattr(res, 'bits_list', None) or []
                 for t in tags:
-                    off = int(t.get('address', 0)) - start
-                    val = None
-                    if 0 <= off < len(bits):
-                        val = 1 if bits[off] else 0  # Convert bool to 1/0
+                    t_addr = int(t.get('address', 0))
+                    dtype = t.get('data_type') or 'Boolean'
+                    off = t_addr - start
+                    
+                    # Check if this is a Boolean(Array) tag
+                    is_bool_array = dtype.lower() == 'boolean(array)' or dtype.endswith('[]')
+                    
+                    if is_bool_array:
+                        # Extract array element count from address like "101024 [40]"
+                        # Use raw_address_str (e.g., "101024 [40]") instead of address (which is just the numeric offset)
+                        raw_addr = t.get('raw_address_str', '') or t.get('address', '')
+                        array_elem_match = re.search(r'\[\s*(\d+)\s*\]', str(raw_addr))
+                        array_elem_count = int(array_elem_match.group(1)) if array_elem_match else 1
+                        
+                        # Extract array of bits
+                        elems = []
+                        for i in range(array_elem_count):
+                            bit_idx = off + i
+                            if 0 <= bit_idx < len(bits):
+                                elems.append(1 if bits[bit_idx] else 0)
+                            else:
+                                elems.append(None)
+                        val = elems
+                        
+                        # DEBUG: Log Boolean(Array) extraction
+                        if self.diag_callback and len(elems) > 0:
+                            self.diag_callback(f"[BOOL_ARRAY] {t.get('name', 'Unknown')} addr={t_addr} start={start} off={off} count={array_elem_count} bits_len={len(bits)} extracted={elems[:10]}{'...' if len(elems) > 10 else ''}")
+                    else:
+                        # Single boolean value
+                        val = None
+                        if 0 <= off < len(bits):
+                            val = 1 if bits[off] else 0  # Convert bool to 1/0
+                    
                     results.append({'tag': t, 'value': val, 'raw': None})
                 return results
 
