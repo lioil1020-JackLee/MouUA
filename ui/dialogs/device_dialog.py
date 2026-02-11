@@ -10,9 +10,9 @@ from PyQt6.QtWidgets import (
     QPushButton,
 )
 from PyQt6.QtCore import Qt
-from ui.components import FormBuilder
+from ui.components import FormBuilder, get_form_field_style
 # UI constants
-FORM_FIELD_STYLE = "QLineEdit { min-height: 22px; }"
+DEFAULT_SPACING = 6  # 統一的垂直間距
 
 
 class DeviceDialog(QDialog):
@@ -21,7 +21,7 @@ class DeviceDialog(QDialog):
         self.driver_type = str(driver_type)
         self.setWindowTitle("Device Properties")
         self.setMinimumSize(600, 550)
-        self.setStyleSheet(FORM_FIELD_STYLE)
+        self.setStyleSheet(get_form_field_style())
 
         # --- 根據 Driver 字串判斷顯示邏輯 ---
         self.is_serial = self.driver_type == "Modbus RTU Serial"
@@ -29,6 +29,7 @@ class DeviceDialog(QDialog):
         self.is_ethernet = self.driver_type == "Modbus TCP/IP Ethernet"
 
         main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(DEFAULT_SPACING)  # 設置統一的垂直間距
         self.tabs = QTabWidget()
 
         # 1. General
@@ -64,11 +65,16 @@ class DeviceDialog(QDialog):
         # 對應邏輯圖：Device Name, Description, Device ID
         self.tab_ident = QWidget()
         lay = QVBoxLayout(self.tab_ident)
+        lay.setSpacing(DEFAULT_SPACING)  # 設置統一的垂直間距
         self.name_edit = QLineEdit(suggested_name)
+        self.name_edit.setFixedHeight(22)  # 設置固定高度
         self.desc_edit = QLineEdit("")
+        self.desc_edit.setFixedHeight(22)  # 設置固定高度
         self.id_spin = QSpinBox()
         self.id_spin.setRange(1, 65535)
         self.id_spin.setValue(1)
+        self.id_spin.setFixedHeight(22)  # 設置與其他欄位相同的高度
+        self.id_spin.setStyleSheet("QSpinBox { min-height: 22px; } QSpinBox QLineEdit { border: 1px solid #999; }")
 
         lay.addWidget(QLabel("Device Name:"))
         lay.addWidget(self.name_edit)
@@ -85,6 +91,7 @@ class DeviceDialog(QDialog):
         # 對應邏輯圖：Request Timeout, Attempts, Inter-Request Delay
         self.tab_timing = QWidget()
         lay = QVBoxLayout(self.tab_timing)
+        lay.setSpacing(DEFAULT_SPACING)  # 設置統一的垂直間距
         self.timing_builder = FormBuilder()
 
         from core.config.constants import MODBUS_DEFAULT_TIMING
@@ -117,6 +124,7 @@ class DeviceDialog(QDialog):
         # 對應邏輯圖 DataAccess 節點
         self.tab_access = QWidget()
         lay = QVBoxLayout(self.tab_access)
+        lay.setSpacing(DEFAULT_SPACING)  # 設置統一的垂直間距
         self.access_builder = FormBuilder()
 
         from core.config.constants import MODBUS_DEFAULT_DATA_ACCESS
@@ -165,6 +173,7 @@ class DeviceDialog(QDialog):
         # 對應邏輯圖 Data Encoding 節點
         self.tab_encoding = QWidget()
         lay = QVBoxLayout(self.tab_encoding)
+        lay.setSpacing(DEFAULT_SPACING)  # 設置統一的垂直間距
         self.encoding_builder = FormBuilder()
 
         from core.config.constants import MODBUS_DEFAULT_ENCODING
@@ -213,6 +222,7 @@ class DeviceDialog(QDialog):
         # 對應邏輯圖 Block Sizes 節點
         self.tab_blocks = QWidget()
         lay = QVBoxLayout(self.tab_blocks)
+        lay.setSpacing(DEFAULT_SPACING)  # 設置統一的垂直間距
         self.block_builder = FormBuilder()
 
         from core.config.constants import MODBUS_DEFAULT_BLOCK_SIZES

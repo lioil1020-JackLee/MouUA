@@ -55,8 +55,24 @@ from ui.components import (
 )
 from core.controllers.validators import to_numeric_flag
 # UI constants
-SPLITTER_STYLE = "QSplitter { background-color: #2b2b2b; }"
+SPLITTER_STYLE_DARK = "QSplitter { background-color: #2b2b2b; }"
+SPLITTER_STYLE_LIGHT = "QSplitter { background-color: white; }"
 TREE_ITEM_STYLE = "QTreeWidget::item { padding: 3px; }"
+
+
+def get_splitter_style():
+    """根據系統主題返回合適的splitter樣式"""
+    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtGui import QPalette
+    app = QApplication.instance()
+    if app:
+        palette = app.palette()
+        window_color = palette.color(QPalette.ColorRole.Window)
+        if window_color.lightness() > 128:  # 淺色主題
+            return SPLITTER_STYLE_LIGHT
+        else:
+            return SPLITTER_STYLE_DARK
+    return SPLITTER_STYLE_DARK
 
 try:
     from core.controllers.data_manager import DataBroker
@@ -296,8 +312,8 @@ class IoTApp(QMainWindow):
         self.vsplitter.addWidget(self.monitor_table)
 
         # 应用统一的背景色
-        self.splitter.setStyleSheet(SPLITTER_STYLE)
-        self.vsplitter.setStyleSheet(SPLITTER_STYLE)
+        self.splitter.setStyleSheet(get_splitter_style())
+        self.vsplitter.setStyleSheet(get_splitter_style())
         self.setCentralWidget(self.vsplitter)
         self.pollers = []
         self.monitor_row = {}

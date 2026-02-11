@@ -14,7 +14,7 @@ from typing import Dict, Any, Optional, List
 from .components import FormBuilder
 
 # UI constants (avoiding circular import)
-FORM_FIELD_STYLE = "QLineEdit { min-height: 22px; }"
+from ui.components import get_form_field_style
 SPACING = 6
 MARGIN_H = 12
 MARGIN_V = 12
@@ -63,7 +63,7 @@ class BaseDialog(QDialog):
 
         # Set minimum size and style
         self.setMinimumWidth(400)
-        self.setStyleSheet(FORM_FIELD_STYLE)
+        self.setStyleSheet(get_form_field_style())
 
     def _setup_content(self):
         """Override this method to add dialog-specific content."""
@@ -175,6 +175,7 @@ class EnhancedFormBuilder(FormBuilder):
             widget.setMaximum(max_val)
         widget.setValue(default)
         widget.setFixedHeight(ROW_HEIGHT)
+        widget.setStyleSheet("QSpinBox { min-height: 22px; } QSpinBox QLineEdit { border: 1px solid #999; }")
 
         self.layout.addRow(label, widget)
         self.fields[field_id] = widget

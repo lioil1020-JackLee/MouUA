@@ -11,8 +11,9 @@ from PyQt6.QtWidgets import (
     QFrame,
 )
 from PyQt6.QtGui import QIntValidator
+from ui.components import get_form_field_style
 # UI constants
-FORM_FIELD_STYLE = "QLineEdit { min-height: 22px; }"
+DEFAULT_SPACING = 6  # 統一的垂直間距
 from core.config import (
     MODBUS_ADDRESS_OFFSET,
     MODBUS_SEQUENCE_WIDTH,
@@ -35,7 +36,7 @@ class TagDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Tag Properties")
         self.setMinimumSize(480, 580)
-        self.setStyleSheet(FORM_FIELD_STYLE)
+        self.setStyleSheet(get_form_field_style())
 
         # 儲存目標 item（用於計算下一個地址）
         self.target_item = target_item
@@ -61,11 +62,13 @@ class TagDialog(QDialog):
         ]
 
         main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(DEFAULT_SPACING)  # 設置統一的垂直間距
         self.tabs = QTabWidget()
 
         # 1. General 分頁
         self.tab_general = QWidget()
         gen_lay = QFormLayout(self.tab_general)
+        gen_lay.setVerticalSpacing(DEFAULT_SPACING)  # 設置統一的垂直間距
 
         # Ensure suggested values are strings (QLineEdit expects str)
         self.name_edit = QLineEdit(
@@ -109,8 +112,10 @@ class TagDialog(QDialog):
         # 2. Scaling 分頁
         self.tab_scaling = QWidget()
         scaling_layout_container = QVBoxLayout(self.tab_scaling)
+        scaling_layout_container.setSpacing(DEFAULT_SPACING)  # 設置統一的垂直間距
 
         type_form = QFormLayout()
+        type_form.setVerticalSpacing(DEFAULT_SPACING)  # 設置統一的垂直間距
         self.scale_type = QComboBox()
         self.scale_type.addItems(["None", "Linear", "Square Root"])
         type_form.addRow("Scaling Type:", self.scale_type)
@@ -119,6 +124,7 @@ class TagDialog(QDialog):
         # Scaling 參數容器 (可隱藏)
         self.scaling_params_frame = QFrame()
         self.params_layout = QFormLayout(self.scaling_params_frame)
+        self.params_layout.setVerticalSpacing(DEFAULT_SPACING)  # 設置統一的垂直間距
 
         self.raw_low = QLineEdit("0")
         self.raw_high = QLineEdit("1000")

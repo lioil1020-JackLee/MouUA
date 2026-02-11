@@ -11,16 +11,43 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QComboBox,
     QLabel,
+    QApplication,
 )
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPalette
+
 # UI constants defined locally to avoid import issues
-TABLE_STYLE = "QTableWidget { background-color: #2b2b2b; }"
-HEADER_V_STYLE = "QHeaderView::section { background-color: #2b2b2b; }"
-HEADER_H_STYLE = "QHeaderView::section { background-color: #2b2b2b; }"
-CORNER_BUTTON_STYLE = "background-color: #2b2b2b; border: none;"
-FORM_FIELD_STYLE = "QLineEdit { min-height: 22px; }"
+TABLE_STYLE_DARK = "QTableWidget { background-color: #2b2b2b; }"
+HEADER_V_STYLE_DARK = "QHeaderView::section { background-color: #2b2b2b; }"
+HEADER_H_STYLE_DARK = "QHeaderView::section { background-color: #2b2b2b; }"
+CORNER_BUTTON_STYLE_DARK = "background-color: #2b2b2b; border: none;"
+
+TABLE_STYLE_LIGHT = "QTableWidget { background-color: white; color: black; }"
+HEADER_V_STYLE_LIGHT = "QHeaderView::section { background-color: white; color: black; }"
+HEADER_H_STYLE_LIGHT = "QHeaderView::section { background-color: white; color: black; }"
+CORNER_BUTTON_STYLE_LIGHT = "background-color: white; border: none; color: black;"
+FORM_FIELD_STYLE_LIGHT = "QLineEdit { min-height: 22px; border: 1px solid #999; } QSpinBox { min-height: 22px; } QSpinBox QLineEdit { border: 1px solid #999; } QComboBox { min-height: 22px; border: 1px solid #999; }"
+FORM_FIELD_STYLE_DARK = "QLineEdit { min-height: 22px; } QSpinBox { min-height: 22px; } QComboBox { min-height: 22px; }"
 ROW_HEIGHT = 22
-FORM_ROW_SPACING = 2
+FORM_ROW_SPACING = 6  # 統一使用6像素間距
+
+
+def is_light_theme():
+    """檢測系統是否為淺色主題"""
+    app = QApplication.instance()
+    if app:
+        palette = app.palette()
+        window_color = palette.color(QPalette.ColorRole.Window)
+        return window_color.lightness() > 128  # 亮度大於128視為淺色
+    return False
+
+
+def get_form_field_style():
+    """根據系統主題返回合適的表單控件樣式"""
+    if is_light_theme():
+        return FORM_FIELD_STYLE_LIGHT
+    else:
+        return FORM_FIELD_STYLE_DARK
 
 
 # ===== 表格相關工具 =====
@@ -37,23 +64,35 @@ def setup_table(table: QTableWidget, show_vertical_header=True):
     if not table:
         return
 
+    # 根據系統主題選擇樣式
+    if is_light_theme():
+        table_style = TABLE_STYLE_LIGHT
+        header_v_style = HEADER_V_STYLE_LIGHT
+        header_h_style = HEADER_H_STYLE_LIGHT
+        corner_button_style = CORNER_BUTTON_STYLE_LIGHT
+    else:
+        table_style = TABLE_STYLE_DARK
+        header_v_style = HEADER_V_STYLE_DARK
+        header_h_style = HEADER_H_STYLE_DARK
+        corner_button_style = CORNER_BUTTON_STYLE_DARK
+
     # 應用全局樣式表
-    table.setStyleSheet(TABLE_STYLE)
+    table.setStyleSheet(table_style)
 
     # 配置垂直表頭（行號）
     vh = table.verticalHeader()
     if vh:
-        vh.setStyleSheet(HEADER_V_STYLE)
+        vh.setStyleSheet(header_v_style)
 
     # 配置水平表頭（列標題）
     hh = table.horizontalHeader()
     if hh:
-        hh.setStyleSheet(HEADER_H_STYLE)
+        hh.setStyleSheet(header_h_style)
 
     # 處理角落按鈕
     corner_button = table.findChild(QAbstractButton)
     if corner_button:
-        corner_button.setStyleSheet(CORNER_BUTTON_STYLE)
+        corner_button.setStyleSheet(corner_button_style)
 
 
 # ===== 樹項工具 =====
@@ -164,7 +203,7 @@ class FormBuilder(QWidget):
         self.layout = QFormLayout(self)
         self.layout.setVerticalSpacing(FORM_ROW_SPACING)
         self.fields = {}
-        self.setStyleSheet(FORM_FIELD_STYLE)
+        self.setStyleSheet(get_form_field_style())
 
     def add_field(
         self, field_id, label_text, field_type="text", options=None, default=""

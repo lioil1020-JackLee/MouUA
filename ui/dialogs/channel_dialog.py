@@ -20,9 +20,9 @@ from PyQt6.QtWidgets import (
     QLabel,
     QPushButton,
 )
-from ui.components import FormBuilder
+from ui.components import FormBuilder, get_form_field_style
 # UI constants
-FORM_FIELD_STYLE = "QLineEdit { min-height: 22px; }"
+DEFAULT_SPACING = 6  # 統一的垂直間距
 from collections import OrderedDict
 
 
@@ -31,27 +31,32 @@ class ChannelDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Channel Properties")
         self.setMinimumSize(600, 500)
-        self.setStyleSheet(FORM_FIELD_STYLE)
+        self.setStyleSheet(get_form_field_style())
 
         main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(DEFAULT_SPACING)  # 設置統一的垂直間距
         self.tabs = QTabWidget()
 
         # 1. General 頁面 (包含 Name 與 Description)
         self.tab_ident = QWidget()
         id_lay = QVBoxLayout(self.tab_ident)
+        id_lay.setSpacing(DEFAULT_SPACING)  # 設置統一的垂直間距
 
         self.name_edit = QLineEdit(suggested_name)
+        self.name_edit.setFixedHeight(22)  # 設置固定高度
         id_lay.addWidget(QLabel("Channel Name:"))
         id_lay.addWidget(self.name_edit)
 
         # ✨ 新增單行描述欄位（放在 General 頁面，依配置樹順序）
         self.desc_edit = QLineEdit()
+        self.desc_edit.setFixedHeight(22)  # 設置固定高度
         id_lay.addWidget(QLabel("Description:"))
         id_lay.addWidget(self.desc_edit)
 
         # 2. Driver 頁面
         self.tab_driver = QWidget()
         drv_lay = QVBoxLayout(self.tab_driver)
+        drv_lay.setSpacing(DEFAULT_SPACING)  # 設置統一的垂直間距
         self.driver_combo = QComboBox()
         self.driver_combo.addItems(
             ["Modbus RTU Serial", "Modbus RTU over TCP", "Modbus TCP/IP Ethernet"]
@@ -69,6 +74,7 @@ class ChannelDialog(QDialog):
         # 3. Communication 頁面
         self.tab_comm = QWidget()
         comm_lay = QVBoxLayout(self.tab_comm)
+        comm_lay.setSpacing(DEFAULT_SPACING)  # 設置統一的垂直間距
         self.builder = FormBuilder()
         comm_lay.addWidget(self.builder)
 

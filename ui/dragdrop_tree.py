@@ -1,7 +1,17 @@
-from PyQt6.QtWidgets import QTreeWidget, QTreeWidgetItem, QMenu
+from PyQt6.QtWidgets import QTreeWidget, QTreeWidgetItem, QMenu, QApplication
 from PyQt6.QtCore import Qt, pyqtSignal, QBuffer, QByteArray, QIODevice
-from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QIcon
+from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QIcon, QPalette
 import base64
+
+
+def _is_light_theme():
+    """檢測系統是否為淺色主題"""
+    app = QApplication.instance()
+    if app:
+        palette = app.palette()
+        window_color = palette.color(QPalette.ColorRole.Window)
+        return window_color.lightness() > 128  # 亮度大於128視為淺色
+    return False
 
 
 class ConnectivityTree(QTreeWidget):
@@ -76,6 +86,18 @@ class ConnectivityTree(QTreeWidget):
             plus_url = _pixmap_to_dataurl(self._plus_icon.pixmap(size))
             minus_url = _pixmap_to_dataurl(self._minus_icon.pixmap(size))
 
+            # 根據系統主題選擇顏色
+            if _is_light_theme():
+                bg_color = "#ffffff"
+                text_color = "#000000"
+                selected_bg = "#cce7ff"
+                selected_hover = "#99d6ff"
+            else:
+                bg_color = "#2b2b2b"
+                text_color = "#ffffff"
+                selected_bg = "#0d47a1"
+                selected_hover = "#1565c0"
+
             sheet = f"""
 QTreeWidget::branch:closed:has-children {{ image: url({plus_url}); width: {size}px; height: {size}px; margin-left: 0px; margin-right: 5px; }}
 QTreeWidget::branch:open:has-children {{ image: url({minus_url}); width: {size}px; height: {size}px; margin-left: 0px; margin-right: 5px; }}
@@ -84,23 +106,23 @@ QTreeWidget {{
     padding-left: 0px; 
     outline: none; 
     border: none;
-    background-color: #2b2b2b;
+    background-color: {bg_color};
 }}
 QTreeWidget::item {{ 
     padding-left: 0px; 
     outline: none; 
     border: none;
-    background-color: #2b2b2b;
-    color: #ffffff;
+    background-color: {bg_color};
+    color: {text_color};
 }}
 QTreeWidget::item:selected {{ 
-    background-color: #0d47a1;
-    color: #ffffff;
+    background-color: {selected_bg};
+    color: {text_color};
     outline: none;
     border: none;
 }}
 QTreeWidget::item:selected:hover {{
-    background-color: #1565c0;
+    background-color: {selected_hover};
     outline: none;
     border: none;
 }}

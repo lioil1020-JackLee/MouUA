@@ -11,10 +11,9 @@ from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QCheckBox, QFormLayout, QLineEdit
 )
 from PyQt6.QtCore import Qt
-from ui.components import FormBuilder
+from ui.components import FormBuilder, get_form_field_style
 # UI constants
-FORM_FIELD_STYLE = "QLineEdit { min-height: 22px; }"
-SPACING = 6
+SPACING = 6  # 統一的垂直間距
 MARGIN_H = 12
 MARGIN_V = 12
 FORM_MAX_WIDTH = 600
@@ -25,7 +24,7 @@ class OPCUADialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("OPC UA Server")
         self.resize(640, 560)
-        self.setStyleSheet(FORM_FIELD_STYLE)
+        self.setStyleSheet(get_form_field_style())
 
         # 建立主分頁控制項
         self.tabs = QTabWidget(self)

@@ -16,6 +16,10 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from typing import Any, Optional, Dict
+from ui.components import get_form_field_style
+
+# UI constants
+DEFAULT_SPACING = 6  # 統一的垂直間距
 
 
 class WriteValueDialog(QDialog):
@@ -59,8 +63,10 @@ class WriteValueDialog(QDialog):
         self.setWindowTitle("寫入值")
         self.setModal(True)
         self.setMinimumWidth(400)
+        self.setStyleSheet(get_form_field_style())  # 應用統一的控件樣式
         
         layout = QVBoxLayout()
+        layout.setSpacing(DEFAULT_SPACING)  # 設置統一的垂直間距
         
         # 標籤名稱和地址
         name_layout = QHBoxLayout()
