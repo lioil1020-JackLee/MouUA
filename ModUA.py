@@ -340,10 +340,16 @@ class IoTApp(QMainWindow):
         open_action.triggered.connect(self.open_project)
         save_action.triggered.connect(self.save_project)
         save_as_action.triggered.connect(self.save_project_as)
+        
         runtime_indicator = QAction("🟢 Runtime", self)
         runtime_indicator.triggered.connect(self.toggle_runtime)
         self.menuBar().addAction(runtime_indicator)
         self.runtime_indicator_action = runtime_indicator
+        
+        # OPC UA 設定選項：放在 Runtime 和 Terminals 之間
+        opcua_config_action = QAction("⚙️ OPC UA", self)
+        opcua_config_action.triggered.connect(self.open_opcua_settings)
+        self.menuBar().addAction(opcua_config_action)
         
         # 在選單欄右側添加自動啟動runtime的核取方塊
         self.auto_start_runtime_checkbox = QCheckBox()
@@ -1045,35 +1051,75 @@ class IoTApp(QMainWindow):
                 try:
                     # Check if the port is really available before starting
                     port = int(flat.get("port", nested.get("opcua_settings", {}).get("general", {}).get("port", 4848)))
+                    opc_logger.info(f"[OPC_STARTUP] Checking if port {port} is available...")
                     if not IoTApp.is_port_really_available(port):
                         error_msg = f"Port {port} is blocked by system or reserved, cannot start OPC UA server. Please choose a different port."
                         opc_logger.error(error_msg)
                         self.opc_error_occurred.emit("OPC UA 啟動失敗", error_msg)
                         return
 
-                    opc_logger.info("Starting OPC UA server...")
+                    opc_logger.info(f"[OPC_STARTUP] Port {port} is available, starting OPC UA server...")
+                    import time as time_module
+                    start_time = time_module.time()
                     self.opc_server.start_server()
+                    opc_logger.info("[OPC_STARTUP] Server start_server() called, waiting for is_running flag...")
 
                     # Wait for server to be ready
-                    # Increased timeout for Windows port release
-                    max_wait = 5
+                    # ✅ ASYNC CERTIFICATE GENERATION: Runs in thread pool, doesn't block event loop
+                    # Most cases should complete in 2-5 seconds:
+                    # - Cached certificate: < 1s
+                    # - First-run cert generation: ~15-20s in thread pool (doesn't freeze UI/event loop)
+                    # - server.init(): ~1-2s
+                    # - server.start(): ~0.5-1s
+                    # Timeout set to 10s for stability (vs 20s before, still much better)
+                    max_wait = 10
                     waited = 0
                     poll_interval = 0.1
+                    check_count = 0
 
                     while not self.opc_server.is_running and waited < max_wait:
                         time.sleep(poll_interval)
                         waited += poll_interval
+                        check_count += 1
+                        
+                        # Log every 1 second
+                        if check_count % 10 == 0:
+                            # Check server thread status
+                            thread_alive = self.opc_server.server_thread and self.opc_server.server_thread.is_alive()
+                            opc_logger.debug(f"[OPC_STARTUP] Waiting... {waited:.1f}s, is_running={self.opc_server.is_running}, thread_alive={thread_alive}")
 
                     if not self.opc_server.is_running:
-                        error_msg = (
-                            f"OPC UA server initialization timeout (waited {waited}s)"
-                        )
-                        opc_logger.error(error_msg)
-                        # 发射信号通知 UI 线程显示错误
-                        self.opc_error_occurred.emit("OPC UA 啟動失敗", error_msg)
+                        # ✅ Check if there's a stored server error
+                        server_error = getattr(self.opc_server, '_server_error', None)
+                        thread_alive = self.opc_server.server_thread and self.opc_server.server_thread.is_alive()
+                        
+                        if server_error:
+                            # There's a specific error from the server thread
+                            error_msg = f"OPC UA server initialization failed: {server_error}"
+                            opc_logger.error(error_msg)
+                            self.opc_error_occurred.emit("OPC UA 啟動失敗", error_msg)
+                        elif not thread_alive:
+                            # Thread died without is_running being set
+                            error_msg = (
+                                f"OPC UA server thread died unexpectedly (waited {waited:.1f}s). "
+                                f"Check the log for exceptions during initialization."
+                            )
+                            opc_logger.error(error_msg)
+                            self.opc_error_occurred.emit("OPC UA 啟動失敗", error_msg)
+                        else:
+                            # Thread is still alive but hasn't set is_running yet
+                            error_msg = (
+                                f"OPC UA server initialization timeout (waited {waited:.1f}s). "
+                                f"Server thread is still running but not responding. "
+                                f"This could indicate a deadlock or very slow initialization. "
+                                f"Check the log for diagnostic messages."
+                            )
+                            opc_logger.error(error_msg)
+                            self.opc_error_occurred.emit("OPC UA 啟動失敗", error_msg)
                         return
 
-                    opc_logger.info("OPC UA server is running, loading tags...")
+                    elapsed_time = time_module.time() - start_time
+                    opc_logger.info(f"[OPC_STARTUP] ✓ OPC UA server is running! (took {elapsed_time:.2f}s), loading tags...")
 
                     # Server is ready, load tags
                     if self.opc_server:
@@ -1084,6 +1130,11 @@ class IoTApp(QMainWindow):
                             self.update_status_message.emit(
                                 "OPC UA Server 已啟動並重新加載標籤", 3000
                             )
+                            
+                            # ✅ 檢查是否需要自動啟動 Runtime（在 OPC UA 完成初始化後）
+                            if getattr(self, '_auto_start_runtime_on_startup', False):
+                                logging.info("Auto-starting Runtime now that OPC UA is ready...")
+                                QTimer.singleShot(500, self.start_runtime_polling)  # 短延遲確保 UI 響應
                             
                             # ✅ 如果 Runtime 已經在運行，啟動 OPC 同步 timer
                             if getattr(self, "_runtime_running", False):
@@ -5253,6 +5304,7 @@ class IoTApp(QMainWindow):
     def load_app_settings(self):
         """加載應用程序設置"""
         try:
+            auto_start = False
             if os.path.exists(self._settings_file):
                 with open(self._settings_file, 'r', encoding='utf-8') as f:
                     settings = json.load(f)
@@ -5284,12 +5336,14 @@ class IoTApp(QMainWindow):
                 if args.minimized:
                     QTimer.singleShot(500, lambda: self.setWindowState(Qt.WindowState.WindowMinimized))
             
-            # 如果設置了自動啟動且沒有運行，則啟動runtime
-            if auto_start and not getattr(self, '_runtime_running', False):
-                QTimer.singleShot(1000, self.start_runtime_polling)  # 延遲1秒啟動
-                
+            # ✅ 保存自動啟動狀態，讓 OPC UA 初始化完成後使用
+            self._auto_start_runtime_on_startup = auto_start and not getattr(self, '_runtime_running', False)
+            
         except Exception as e:
             logging.warning(f"Failed to load app settings: {e}")
+            # 降級：直接啟動 Runtime（不等待 OPC UA）
+            logging.warning("Falling back to direct Runtime start...")
+            self.start_runtime_polling()
 
     def save_app_settings(self):
         """保存應用程序設置"""

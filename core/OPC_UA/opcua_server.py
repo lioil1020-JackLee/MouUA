@@ -789,6 +789,38 @@ class OPCUAServer:
 
         return cert_path, key_path
 
+    async def _generate_server_certificate_async(self, app_name: str, host: str, port: int) -> tuple:
+        """🔄 Async wrapper for certificate generation - offloads CPU-intensive work to thread pool.
+        
+        CRITICAL: RSA key generation is CPU-intensive and would block the event loop for 15-20 seconds!
+        This async wrapper uses loop.run_in_executor() to run the sync certificate generation in a
+        background thread pool, allowing the event loop to remain responsive.
+
+        Args:
+            app_name: Application name for the certificate
+            host: Server host/IP address
+            port: Server port
+
+        Returns:
+            Tuple of (cert_path, key_path) if successful, (None, None) otherwise
+        """
+        try:
+            import time as time_module
+            logger.debug(f"[OPC_STARTUP] Async cert generation starting in thread pool...")
+            start_time = time_module.time()
+            
+            loop = asyncio.get_event_loop()
+            cert_path, key_path = await loop.run_in_executor(
+                None, self._generate_server_certificate, app_name, host, port
+            )
+            
+            elapsed = time_module.time() - start_time
+            logger.debug(f"[OPC_STARTUP] Async cert generation completed in {elapsed:.2f}s")
+            return cert_path, key_path
+        except Exception as e:
+            logger.error(f"Async certificate generation failed: {e}", exc_info=True)
+            return None, None
+
     def _generate_server_certificate(self, app_name: str, host: str, port: int) -> tuple:
         """Generate a self-signed server certificate for OPC UA.
 
@@ -991,18 +1023,21 @@ class OPCUAServer:
             asyncio.set_event_loop(self.loop)
             self._stop_event = asyncio.Event()
 
-            # ✅ Run cleanup delay inside event loop (async sleep)
-            # This allows the event loop to remain responsive
+            # ✅ Run cleanup and server initialization inside event loop
+            # The sleep is for proper cleanup of any previous connections
             async def startup_with_cleanup():
-                logger.debug("Waiting for cleanup before starting server...")
-                await asyncio.sleep(2)  # ✅ Non-blocking sleep in event loop
+                import time as time_module
+                logger.debug("[OPC_STARTUP] Starting up OPC UA server with cleanup...")
+                await asyncio.sleep(0.5)  # ✅ Reduced from 2s to 0.5s - shorter cleanup window
+                logger.debug("[OPC_STARTUP] Cleanup complete, initializing server...")
                 await self._start_server_async(host, port)
                 # ✅ Update heartbeat after successful startup
                 self._last_heartbeat = time.time()
+                logger.debug("[OPC_STARTUP] Server startup coroutine completed")
 
             # Run the async server start with cleanup delay
             logger.info(
-                f"Starting OPC UA async server on {host}:{port} in event loop..."
+                f"[OPC_STARTUP] Starting OPC UA async server on {host}:{port} in event loop..."
             )
             self.loop.run_until_complete(startup_with_cleanup())
 
@@ -1100,10 +1135,14 @@ class OPCUAServer:
 
             # ✅ Load or generate server certificate if needed for secure endpoints
             if self._needs_certificate(policies):
+                import time as time_module
                 logger.info("Secure endpoints requested, setting up server certificate...")
-                cert_path, key_path = self._generate_server_certificate(
+                init_start = time_module.time()
+                cert_path, key_path = await self._generate_server_certificate_async(
                     config["app_name"], host, port
                 )
+                init_time = time_module.time() - init_start
+                logger.debug(f"[OPC_STARTUP] Certificate setup took {init_time:.2f}s")
                 if cert_path and key_path and cert_path.exists() and key_path.exists():
                     await self.server.load_certificate(str(cert_path))
                     await self.server.load_private_key(str(key_path))
@@ -1119,7 +1158,12 @@ class OPCUAServer:
                 logger.info("Only NoSecurity policy enabled, no certificate required")
 
             # Initialize server (this creates endpoints based on security settings)
+            import time as time_module
+            logger.debug("[OPC_STARTUP] Calling server.init()...")
+            init_start = time_module.time()
             await self.server.init()
+            init_time = time_module.time() - init_start
+            logger.debug(f"[OPC_STARTUP] server.init() completed in {init_time:.2f}s")
 
             # ✅ Install write interceptor to capture client writes
             await self._install_write_interceptor()
@@ -1129,9 +1173,17 @@ class OPCUAServer:
             logger.info("OPC UA Certificate validator configured")
 
             # Start server
-            logger.debug(f"Starting server on {endpoint}...")
+            import time as time_module
+            logger.debug(f"[OPC_STARTUP] Calling server.start()...")
+            start_start = time_module.time()
             await self.server.start()
+            start_time = time_module.time() - start_start
+            logger.debug(f"[OPC_STARTUP] server.start() completed in {start_time:.2f}s")
+            
+            # ✅ Set is_running flag BEFORE logging (in case logging fails)
             self.is_running = True
+            self._server_error = None  # Clear any previous errors
+            logger.info(f"[OPC_STARTUP] ✅ OPC UA Server is_running={self.is_running}, ready to accept connections")
 
             # Log available endpoints
             try:
@@ -1501,9 +1553,9 @@ class OPCUAServer:
             # Wait for thread to finish (with timeout)
             if self.server_thread and self.server_thread.is_alive():
                 logger.debug("Waiting for server thread to finish...")
-                self.server_thread.join(timeout=5)
+                self.server_thread.join(timeout=8)  # ✅ Increased from 5s to 8s for better cleanup
                 if self.server_thread.is_alive():
-                    logger.warning("Server thread did not finish within timeout")
+                    logger.warning("Server thread did not finish within 8s timeout")
 
             # Force cleanup references
             try:
@@ -1525,6 +1577,9 @@ class OPCUAServer:
             # Clean up loop
             try:
                 if self.loop:
+                    # ✅ Add small delay to allow Windows socket to fully release
+                    import time
+                    time.sleep(0.1)  # 100ms delay for socket cleanup
                     self.loop = None
             except:
                 pass
