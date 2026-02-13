@@ -5,6 +5,8 @@ import threading
 import logging
 import asyncio
 import socket
+import json
+import argparse
 from datetime import datetime
 
 # Hide console window on Windows (before any other operations)
@@ -35,6 +37,8 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QMenu,
     QFileDialog,
+    QSystemTrayIcon,
+    QCheckBox,
 )
 from PyQt6.QtGui import QShortcut, QKeySequence, QAction, QIcon
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
@@ -181,6 +185,7 @@ class IoTApp(QMainWindow):
         os.makedirs(self._appdata_dir, exist_ok=True)
         self._temp_json = os.path.join(self._appdata_dir, "temp.json")
         self._last_project_file = os.path.join(self._appdata_dir, "last_project.txt")
+        self._settings_file = os.path.join(self._appdata_dir, "settings.json")
 
         # 初始化UI状态变量
         self.terminal_window = None
@@ -339,10 +344,16 @@ class IoTApp(QMainWindow):
         runtime_indicator.triggered.connect(self.toggle_runtime)
         self.menuBar().addAction(runtime_indicator)
         self.runtime_indicator_action = runtime_indicator
-        # (Normalize Channels action removed)
-        opcua_action = QAction("🔗 OPC UA", self)
-        opcua_action.triggered.connect(self.open_opcua_settings)
-        self.menuBar().addAction(opcua_action)
+        
+        # 在選單欄右側添加自動啟動runtime的核取方塊
+        self.auto_start_runtime_checkbox = QCheckBox()
+        self.auto_start_runtime_checkbox.setToolTip("自動啟動 Runtime：勾選後下次啟動時會自動開始輪詢")
+        self.auto_start_runtime_checkbox.stateChanged.connect(self.toggle_auto_start_runtime)
+        self.menuBar().setCornerWidget(self.auto_start_runtime_checkbox)
+        
+        # 初始化系統托盤
+        self.setup_system_tray()
+        
         # 終端機（Terminals）選單：列出 ConnectivityTree 下的 Device，選擇即開啟該 Device 的 TerminalWindow
         try:
             self._terminals_menu = self.menuBar().addMenu("📺 Terminals")
@@ -470,6 +481,9 @@ class IoTApp(QMainWindow):
         #                 pass
         # except Exception:
         #     pass
+
+        # 加載應用程序設置
+        self.load_app_settings()
 
     def _log_splitter_sizes(self, prefix):
         try:
@@ -5157,8 +5171,163 @@ class IoTApp(QMainWindow):
         except Exception as e:
             logging.error(f"Failed to update status message: {e}")
 
+    def setup_system_tray(self):
+        """設置系統托盤圖標和功能"""
+        try:
+            # 創建托盤圖標
+            self.tray_icon = QSystemTrayIcon(self)
+            
+            # 設置托盤圖標（使用與窗口相同的圖標）
+            icon_path = None
+            if sys.platform == "darwin":  # macOS
+                icon_path = os.path.join(os.path.dirname(__file__), "lioil.icns")
+            if not icon_path or not os.path.exists(icon_path):
+                icon_path = os.path.join(os.path.dirname(__file__), "lioil.ico")
+            if os.path.exists(icon_path):
+                self.tray_icon.setIcon(QIcon(icon_path))
+            else:
+                # 如果沒有圖標，使用默認圖標
+                self.tray_icon.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon))
+            
+            # 創建托盤菜單
+            tray_menu = QMenu()
+            
+            # 顯示窗口動作
+            show_action = tray_menu.addAction("顯示窗口")
+            show_action.triggered.connect(self.show_window)
+            
+            # 退出動作
+            quit_action = tray_menu.addAction("退出")
+            quit_action.triggered.connect(self.quit_application)
+            
+            self.tray_icon.setContextMenu(tray_menu)
+            
+            # 雙擊托盤圖標顯示窗口
+            self.tray_icon.activated.connect(self.on_tray_icon_activated)
+            
+            # 顯示托盤圖標
+            self.tray_icon.show()
+            
+        except Exception as e:
+            logging.warning(f"Failed to setup system tray: {e}")
+            self.tray_icon = None
+
+    def on_tray_icon_activated(self, reason):
+        """處理托盤圖標點擊事件"""
+        try:
+            if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+                self.show_window()
+        except Exception as e:
+            logging.error(f"Error handling tray icon activation: {e}")
+
+    def show_window(self):
+        """顯示主窗口並恢復正常狀態"""
+        try:
+            self.show()
+            self.raise_()
+            self.activateWindow()
+            self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized)
+        except Exception as e:
+            logging.error(f"Error showing window: {e}")
+
+    def changeEvent(self, event):
+        """處理窗口狀態變化事件"""
+        try:
+            if event.type() == event.Type.WindowStateChange:
+                if self.windowState() & Qt.WindowState.WindowMinimized:
+                    # 當窗口被最小化時，隱藏窗口並顯示托盤提示
+                    if hasattr(self, 'tray_icon') and self.tray_icon:
+                        QTimer.singleShot(100, self.hide)  # 延遲隱藏以確保最小化完成
+                        self.tray_icon.showMessage(
+                            "ModUA",
+                            "應用程序已最小化到系統托盤",
+                            QSystemTrayIcon.MessageIcon.Information,
+                            2000
+                        )
+        except Exception as e:
+            logging.error(f"Error in changeEvent: {e}")
+        
+        # 調用父類方法
+        super().changeEvent(event)
+
+    def load_app_settings(self):
+        """加載應用程序設置"""
+        try:
+            if os.path.exists(self._settings_file):
+                with open(self._settings_file, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+                
+                # 設置自動啟動runtime
+                auto_start = settings.get('auto_start_runtime', False)
+                self.auto_start_runtime_checkbox.setChecked(auto_start)
+            
+            # 處理命令行參數
+            global startup_args
+            if 'startup_args' in globals():
+                args = startup_args
+                
+                # 命令行參數覆蓋設置
+                if args.start_runtime:
+                    auto_start = True
+                    self.auto_start_runtime_checkbox.setChecked(True)
+                
+                # 加載指定項目
+                if args.load_project and os.path.exists(args.load_project):
+                    try:
+                        self._call_controller("import_project_from_json", args.load_project)
+                        self.current_project_path = args.load_project
+                        self._update_window_title(args.load_project)
+                    except Exception as e:
+                        logging.error(f"Failed to load project from command line: {e}")
+                
+                # 最小化啟動
+                if args.minimized:
+                    QTimer.singleShot(500, lambda: self.setWindowState(Qt.WindowState.WindowMinimized))
+            
+            # 如果設置了自動啟動且沒有運行，則啟動runtime
+            if auto_start and not getattr(self, '_runtime_running', False):
+                QTimer.singleShot(1000, self.start_runtime_polling)  # 延遲1秒啟動
+                
+        except Exception as e:
+            logging.warning(f"Failed to load app settings: {e}")
+
+    def save_app_settings(self):
+        """保存應用程序設置"""
+        try:
+            settings = {
+                'auto_start_runtime': self.auto_start_runtime_checkbox.isChecked()
+            }
+            with open(self._settings_file, 'w', encoding='utf-8') as f:
+                json.dump(settings, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            logging.error(f"Failed to save app settings: {e}")
+
+    def toggle_auto_start_runtime(self):
+        """切換自動啟動runtime設置"""
+        try:
+            self.save_app_settings()
+        except Exception as e:
+            logging.error(f"Failed to toggle auto start runtime: {e}")
+
+    def quit_application(self):
+        """從托盤退出應用程序"""
+        try:
+            # 關閉主窗口，這會觸發closeEvent
+            self.close()
+        except Exception as e:
+            logging.error(f"Error quitting application: {e}")
+            # 如果close失敗，直接退出
+            QApplication.instance().quit()
+
     def closeEvent(self, event):
         """Handle application close event - cleanup OPC server and runtime."""
+        try:
+            # 隱藏托盤圖標
+            if hasattr(self, 'tray_icon') and self.tray_icon:
+                self.tray_icon.hide()
+        except Exception:
+            pass
+        
         try:
             # Save current project state to temp.json before closing
             if getattr(self, "_temp_json", None) and getattr(self, "controller", None):
@@ -5269,7 +5438,21 @@ except Exception:
 
 
 def main():
-    # ✅ 配置日誌輸出到文件 (已移除文件日誌)
+    # 解析命令行參數
+    parser = argparse.ArgumentParser(description='ModUA - Modbus OPC UA Application')
+    parser.add_argument('--start-runtime', action='store_true', 
+                       help='啟動時自動開始runtime輪詢')
+    parser.add_argument('--load-project', type=str, 
+                       help='啟動時加載指定項目文件')
+    parser.add_argument('--minimized', action='store_true',
+                       help='以最小化狀態啟動')
+    parser.add_argument('--version', action='version', version='ModUA 1.2.0')
+    
+    args = parser.parse_args()
+    
+    # 將參數保存到全局變數供應用使用
+    global startup_args
+    startup_args = args
     import logging
     # from logging.handlers import RotatingFileHandler
 
