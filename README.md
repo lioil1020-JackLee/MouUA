@@ -14,7 +14,7 @@
 
 以下為 UI 截圖（使用相對路徑從 images/ 讀取）：
 
-（圖片已於 2026年2月3日更新）
+（圖片已於 2026年2月13日更新）
 
 ![Main UI](images/Main%20UI.png)
 ![Channel - General](images/Channel%20-%20General.png)
