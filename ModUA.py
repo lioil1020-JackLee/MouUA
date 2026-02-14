@@ -5240,6 +5240,9 @@ class IoTApp(QMainWindow):
                 # 如果沒有圖標，使用默認圖標
                 self.tray_icon.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon))
             
+            # 設置托盤圖標工具提示
+            self.tray_icon.setToolTip("ModUA")
+            
             # 創建托盤菜單
             tray_menu = QMenu()
             
