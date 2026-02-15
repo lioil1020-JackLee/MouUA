@@ -5295,7 +5295,7 @@ class IoTApp(QMainWindow):
                 if self.windowState() & Qt.WindowState.WindowMinimized:
                     # 當窗口被最小化時，隱藏窗口並顯示托盤提示
                     if hasattr(self, 'tray_icon') and self.tray_icon:
-                        QTimer.singleShot(100, self.hide)  # 延遲隱藏以確保最小化完成
+                        self.hide()  # 立即隱藏窗口
                         self.tray_icon.showMessage(
                             "ModUA",
                             "應用程序已最小化到系統托盤",
