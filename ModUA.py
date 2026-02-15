@@ -5247,13 +5247,13 @@ class IoTApp(QMainWindow):
             # 創建托盤菜單
             tray_menu = QMenu()
             
-            # 顯示窗口動作
-            show_action = tray_menu.addAction("顯示窗口")
+            # 顯示視窗動作
+            show_action = tray_menu.addAction("顯示視窗")
             show_action.triggered.connect(self.show_window)
             
-            # 退出動作
-            quit_action = tray_menu.addAction("退出")
-            quit_action.triggered.connect(self.quit_application)
+            # 結束應用動作
+            quit_action = tray_menu.addAction("結束應用")
+            quit_action.triggered.connect(self.close)
             
             self.tray_icon.setContextMenu(tray_menu)
             
@@ -5371,13 +5371,15 @@ class IoTApp(QMainWindow):
             logging.error(f"Failed to toggle auto start runtime: {e}")
 
     def quit_application(self):
-        """從托盤退出應用程序"""
+        """從托盤結束應用程序"""
         try:
             # 關閉主窗口，這會觸發closeEvent
             self.close()
+            # 確保應用程式完全退出
+            QTimer.singleShot(1000, lambda: QApplication.instance().quit())
         except Exception as e:
             logging.error(f"Error quitting application: {e}")
-            # 如果close失敗，直接退出
+            # 如果close失敗，直接強制退出
             QApplication.instance().quit()
 
     def closeEvent(self, event):
@@ -5445,6 +5447,9 @@ class IoTApp(QMainWindow):
             super().closeEvent(event)
         except Exception:
             event.accept()
+
+        # 確保應用程式完全退出
+        QTimer.singleShot(500, lambda: QApplication.instance().quit())
 
     def _write_opc_trace(self, message: str):
         """Write OPC UA trace message to debug output or logger.
