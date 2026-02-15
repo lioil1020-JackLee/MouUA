@@ -40,7 +40,7 @@ from PyQt6.QtWidgets import (
     QSystemTrayIcon,
     QCheckBox,
 )
-from PyQt6.QtGui import QShortcut, QKeySequence, QAction, QIcon
+from PyQt6.QtGui import QShortcut, QKeySequence, QAction, QIcon, QColor, QPalette
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from core.config import GROUP_SEPARATOR
 from core.config.constants import MODBUS_DEFAULT_ENCODING, MODBUS_DEFAULT_TCP_COMM, MODBUS_DEFAULT_TAG
@@ -4740,6 +4740,7 @@ class IoTApp(QMainWindow):
 
     # --- Project file operations (minimal implementations) ---
     def new_project(self):
+        logger = logging.getLogger(__name__)
         # 建立一個全新的專案（清空 Connectivity tree）。
         #
         # 行為：
@@ -5271,6 +5272,9 @@ class IoTApp(QMainWindow):
         try:
             if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
                 self.show_window()
+            elif reason == QSystemTrayIcon.ActivationReason.Trigger:
+                # 單擊顯示菜單（如果需要）
+                pass
         except Exception as e:
             logging.error(f"Error handling tray icon activation: {e}")
 
@@ -5378,6 +5382,7 @@ class IoTApp(QMainWindow):
 
     def closeEvent(self, event):
         """Handle application close event - cleanup OPC server and runtime."""
+        logger = logging.getLogger(__name__)
         try:
             # 隱藏托盤圖標
             if hasattr(self, 'tray_icon') and self.tray_icon:
@@ -5579,6 +5584,53 @@ def main():
 
     # Process pending events to ensure any console windows are truly hidden
     app.processEvents()
+
+    # Detect Windows light/dark preference when possible
+    is_light = None
+    try:
+        import winreg
+        key = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as reg:
+                val, _ = winreg.QueryValueEx(reg, "AppsUseLightTheme")
+                is_light = bool(val)
+        except Exception:
+            is_light = None
+    except Exception:
+        is_light = None
+
+    # Fallback: use current palette brightness
+    if is_light is None:
+        pal_check = app.palette().color(QPalette.ColorRole.Window)
+        lum = 0.2126 * pal_check.red() + 0.7152 * pal_check.green() + 0.0722 * pal_check.blue()
+        is_light = lum > 128
+
+    # Define color schemes for light/dark (softened: not pure white or pure black)
+    if is_light:
+        bg = QColor('#F3F6F7')    # very light gray-blue (so it's not pure white)
+        text = QColor('#263238')  # dark text for readability
+        button_bg = QColor('#F8FAFB')
+    else:
+        bg = QColor('#1F2426')    # soft near-black (not absolute black)
+        text = QColor('#E6F2F1')  # light text for readability on dark bg
+        button_bg = QColor('#2A2E30')
+
+    pal = app.palette()
+    pal.setColor(QPalette.ColorRole.Window, bg)
+    pal.setColor(QPalette.ColorRole.WindowText, text)
+    pal.setColor(QPalette.ColorRole.Base, bg)
+    pal.setColor(QPalette.ColorRole.AlternateBase, bg.darker(110))
+    pal.setColor(QPalette.ColorRole.Text, text)
+    pal.setColor(QPalette.ColorRole.Button, button_bg)
+    pal.setColor(QPalette.ColorRole.ButtonText, text)
+    app.setPalette(pal)
+
+    # Load stylesheet if available (stylesheet can reference palette colors)
+    try:
+        with open(os.path.join(os.path.dirname(__file__), "style.qss"), "r", encoding="utf-8") as f:
+            app.setStyleSheet(f.read())
+    except Exception:
+        pass
 
     # 應用程式圖示（支持跨平台圖標）
     try:
