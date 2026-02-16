@@ -73,15 +73,3 @@ if sys.platform == 'darwin':
             'NSBonjourServices': ['_modbus._tcp', '_opcua._tcp'],
         },
     )
-else:
-    # Windows: 使用 COLLECT 打包
-    coll = COLLECT(
-        exe,
-        a.binaries,
-        a.zipfiles,
-        a.datas,
-        strip=False,
-        upx=True,
-        upx_exclude=[],
-        name=app_name,
-    )
