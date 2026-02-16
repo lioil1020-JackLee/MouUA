@@ -50,10 +50,10 @@ exe = EXE(
     runtime_tmpdir=None,
     console=False,
     icon=icon_param,
-    # ✅ macOS 特定：支持 Intel + Apple Silicon
-    target_arch='universal2' if sys.platform == 'darwin' else None,
     # ✅ macOS 特定：使用臨時代碼簽名（開發用）
-    # 如果你有開發者帳號，將 - 替換為選項 --codesign-identity 和你的簽名身份
+    # 註：移除 target_arch='universal2' 以避免庫兼容性問題
+    # 在 ARM64 Mac 上編譯產生 ARM64 版本，在 Intel Mac 上編譯產生 x86_64 版本
+    # 如果需要跨架構支持，需要在支持該架構的機器上分別編譯
     codesign_identity='-' if sys.platform == 'darwin' else None,
 )
 

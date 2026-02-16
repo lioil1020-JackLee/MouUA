@@ -51,9 +51,9 @@ exe = EXE(
     upx=True,
     console=False,
     icon=icon_param,
-    # ✅ macOS 特定：支持 Intel + Apple Silicon
-    target_arch='universal2' if sys.platform == 'darwin' else None,
     # ✅ macOS 特定：使用臨時代碼簽名（開發用）
+    # 註：移除 target_arch='universal2' 以避免庫兼容性問題
+    # 在 ARM64 Mac 上編譯產生 ARM64 版本，在 Intel Mac 上編譯產生 x86_64 版本
     codesign_identity='-' if sys.platform == 'darwin' else None,
 )
 
