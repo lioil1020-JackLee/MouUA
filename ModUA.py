@@ -266,6 +266,11 @@ class IoTApp(QMainWindow):
 
         # 应用统一的表格样式
         setup_table(self.tag_table)
+        
+        # ✅ 設置表格列寬策略：避免水平滚動條
+        header = self.tag_table.horizontalHeader()
+        header.setStretchLastSection(True)
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
 
         self.del_shortcut = QShortcut(QKeySequence.StandardKey.Delete, self)
         self.del_shortcut.activated.connect(self._handle_delete_shortcut)
@@ -305,11 +310,40 @@ class IoTApp(QMainWindow):
             self._on_monitor_scroll
         )
 
-        # 配置列宽
+        # 配置列宽 - 避免水平滚動條
         header = self.monitor_table.horizontalHeader()
-        for c in range(self.monitor_model.columnCount()):
+        header.setStretchLastSection(False)  # ✅ 禁用最後列拉伸（防止 Update Count 變太寬）
+        
+        # 列索引：0=Tag Name, 1=Data Type, 2=ClientAccess, 3=Value, 4=Timestamp, 5=Quality, 6=Update Count
+        # 設置合理的初始列寬，防止自動調整時某一列過寬
+        column_widths = [
+            (0, 150),  # Tag Name
+            (1, 80),   # Data Type
+            (2, 100),  # ClientAccess
+            (3, 120),  # Value
+            (4, 160),  # Timestamp
+            (5, 70),   # Quality
+            (6, 100),  # Update Count ✅ 限制為 100px
+        ]
+        
+        for col, mode in enumerate([
+            QHeaderView.ResizeMode.Interactive,  # Tag Name: 可拖拽調整
+            QHeaderView.ResizeMode.Interactive,  # Data Type: 可拖拽調整
+            QHeaderView.ResizeMode.Interactive,  # ClientAccess: 可拖拽調整
+            QHeaderView.ResizeMode.Interactive,  # Value: 可拖拽調整
+            QHeaderView.ResizeMode.Interactive,  # Timestamp: 可拖拽調整
+            QHeaderView.ResizeMode.Interactive,  # Quality: 可拖拽調整
+            QHeaderView.ResizeMode.Interactive,  # Update Count: 可拖拽調整
+        ]):
             try:
-                header.setSectionResizeMode(c, QHeaderView.ResizeMode.ResizeToContents)
+                header.setSectionResizeMode(col, mode)
+            except Exception:
+                pass
+        
+        # ✅ 設置初始列寬
+        for col, width in column_widths:
+            try:
+                self.monitor_table.setColumnWidth(col, width)
             except Exception:
                 pass
 
@@ -491,6 +525,15 @@ class IoTApp(QMainWindow):
 
         # 加載應用程序設置
         self.load_app_settings()
+        
+        # ✅ 設置最適應的最小窗口大小（基於內容尺寸）
+        # 樹菜單：280px + 右側表格：700px + 分割線及邊距：40px = 1020px
+        # 高度：菜單欄 80px + 上表 5行 150px + 下表 5行 170px + 邊距 50px = 450px
+        self.setMinimumWidth(1020)
+        self.setMinimumHeight(450)
+        
+        # 設置初始窗口大小（比最小値稍大以改善視覺效果）
+        self.resize(1280, 720)
 
     def _log_splitter_sizes(self, prefix):
         try:
