@@ -148,6 +148,7 @@ class IoTApp(QMainWindow):
         # 初始化主窗口
         self.setWindowTitle("ModUA")
         self.current_project_name = "Project"  # Store the current project name for title display
+        
         # 支持跨平台圖標（macOS 優先，Windows 次之）
         icon_path = None
         if sys.platform == "darwin":  # macOS
@@ -544,17 +545,13 @@ class IoTApp(QMainWindow):
     # previously had a _mark_recent_finish helper; removed while reverting recent-finish behavior
 
     def _ensure_initial_splitter_sizes(self):
-        # Ensure sensible splitter sizes after window show; log sizes and window geometry
+        # Ensure sensible splitter sizes after window show
         try:
             w = int(self.width() or 0)
-            h = int(self.height() or 0)
         except Exception:
             w = 0
-            h = 0
 
-        # debug log removed
-
-        # determine screen geometry
+        # determine screen geometry and set window size
         try:
             screen = QApplication.primaryScreen()
             if screen is None:
@@ -562,18 +559,7 @@ class IoTApp(QMainWindow):
                 screen = scrs[0] if scrs else None
             if screen:
                 geo = screen.availableGeometry()
-                desired_w = max(300, geo.width() // 2)
-                desired_h = max(200, geo.height() // 2)
-                # attempt to set window to half-screen and center it
-                try:
-                    self.resize(desired_w, desired_h)
-                    cx = geo.x() + (geo.width() - desired_w) // 2
-                    cy = geo.y() + (geo.height() - desired_h) // 2
-                    self.move(cx, cy)
-                    # debug log removed
-                    total_w = desired_w
-                except Exception:
-                    total_w = w or geo.width()
+                total_w = int(self.width() or geo.width())
             else:
                 total_w = w or 800
         except Exception:
@@ -585,9 +571,10 @@ class IoTApp(QMainWindow):
         except Exception:
             pass
 
-        # left-small/right-large split (30/70) but respect minimums and user moves
+        # Set splitter sizes
         try:
             if not getattr(self, "_splitter_user_moved", False):
+                # Default: 30% left (tree), 70% right (table)
                 left_calc = max(150, int(total_w * 0.30))
                 right_calc = max(150, int(total_w) - left_calc)
                 self._set_splitter_sizes(
@@ -600,6 +587,14 @@ class IoTApp(QMainWindow):
                 self._set_splitter_sizes(
                     [left_w, w_req], reason="ensure_initial-fallback"
                 )
+        except Exception:
+            pass
+
+        # Ensure tree is visible
+        try:
+            if hasattr(self, 'tree') and self.tree:
+                self.tree.setVisible(True)
+                self.tree.raise_()
         except Exception:
             pass
 

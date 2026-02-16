@@ -50,4 +50,38 @@ exe = EXE(
     runtime_tmpdir=None,
     console=False,
     icon=icon_param,
+    # ✅ macOS 特定：支持 Intel + Apple Silicon
+    target_arch='universal2' if sys.platform == 'darwin' else None,
+    # ✅ macOS 特定：使用臨時代碼簽名（開發用）
+    # 如果你有開發者帳號，將 - 替換為選項 --codesign-identity 和你的簽名身份
+    codesign_identity='-' if sys.platform == 'darwin' else None,
 )
+
+# ✅ macOS 特定的打包處理 - 創建 .app 束文件結構
+if sys.platform == 'darwin':
+    app = BUNDLE(
+        exe,
+        name=app_name + '.app',
+        icon=icon_param,
+        bundle_identifier='com.modua.app',
+        info_plist={
+            'NSPrincipalClass': 'NSApplication',
+            'NSHighResolutionCapable': 'True',  # ✅ 支持 Retina 高 DPI
+            'NSRequiresIPhoneOSSDK': False,
+            # ✅ 允許應用在受保護的環境中運行
+            'NSLocalNetworkUsageDescription': 'ModUA needs access to local network devices for Modbus communication',
+            'NSBonjourServices': ['_modbus._tcp', '_opcua._tcp'],
+        },
+    )
+else:
+    # Windows: 使用 COLLECT 打包
+    coll = COLLECT(
+        exe,
+        a.binaries,
+        a.zipfiles,
+        a.datas,
+        strip=False,
+        upx=True,
+        upx_exclude=[],
+        name=app_name,
+    )
