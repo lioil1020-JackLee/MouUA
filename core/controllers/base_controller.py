@@ -8,6 +8,7 @@ This module provides the main AppController class which handles:
 
 import os
 import json
+import logging
 from copy import deepcopy
 from collections import OrderedDict
 from typing import Any, Dict, Optional
@@ -26,6 +27,8 @@ from .config_builder import (
     build_device_timing_for_driver,
 )
 from .serializers import export_tags_to_csv
+
+logger = logging.getLogger(__name__)
 
 
 class AppController:
@@ -561,14 +564,14 @@ class AppController:
                     # Save tag data
                     self.save_tag(tag_item, tag_data)
 
-                    print(
-                        f"Imported tag: {full_tag_name} -> Address: {address}, Data Type: {data_type}"
+                    logger.debug(
+                        "Imported tag: %s -> Address: %s, Data Type: %s",
+                        full_tag_name,
+                        address,
+                        data_type,
                     )
         except Exception as e:
-            import traceback
-
-            print(f"Import error: {e}")
-            traceback.print_exc()
+            logger.exception("Import error")
 
     def import_project_from_json(self, filepath):
         # Load a project JSON previously created by `export_project_to_json`.

@@ -9,6 +9,31 @@ import json
 import argparse
 from datetime import datetime
 
+
+class _NullTextIO:
+    """A minimal text stream sink for GUI builds without a console."""
+
+    encoding = "utf-8"
+
+    def write(self, text):
+        return len(text or "")
+
+    def flush(self):
+        return None
+
+    def isatty(self):
+        return False
+
+
+# PyInstaller GUI executables on Windows run without a real console.
+# Redirect stdout/stderr early so stray print/logging calls do not hit
+# invalid console handles or Windows special device names like `nul`.
+if sys.platform == "win32" and getattr(sys, "frozen", False):
+    if sys.stdout is None:
+        sys.stdout = _NullTextIO()
+    if sys.stderr is None:
+        sys.stderr = _NullTextIO()
+
 # Hide console window on Windows (before any other operations)
 if sys.platform == "win32":
     try:
@@ -2148,7 +2173,7 @@ class IoTApp(QMainWindow):
                 QApplication.clipboard().setText(str(value))
                 # print(f"[UI] Copied value: {value}")
         except Exception as e:
-            print(f"[ERROR] Failed to copy value: {e}")
+            logging.exception("Failed to copy value")
 
     def _write_monitor_value(self, pos):
         """從監視表格寫入值"""
@@ -2204,7 +2229,7 @@ class IoTApp(QMainWindow):
                     tag_info["address"] = adjusted_address
                     # print(f"[DEBUG] Adjusted address for array index {array_index}: {base_address} -> {adjusted_address} (register_size={register_size})")
                 else:
-                    print(f"[WARNING] Could not parse base address: {base_address_str}")
+                    logging.warning("Could not parse base address: %s", base_address_str)
 
             # 驗證標籤支援寫入
             read_write = tag_info.get("read_write", "Read Only")
@@ -2237,10 +2262,7 @@ class IoTApp(QMainWindow):
             # print(f"[UI] Dialog closed")
 
         except Exception as e:
-            print(f"[ERROR] Failed to write value: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logging.exception("Failed to write value")
             QMessageBox.critical(self, "錯誤", f"寫入失敗: {str(e)}")
 
     def _build_tag_info_from_tree(self, tag_path):
@@ -2451,10 +2473,7 @@ class IoTApp(QMainWindow):
             return None
 
         except Exception as e:
-            print(f"[ERROR] Failed to build tag info from tree: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logging.exception("Failed to build tag info from tree")
             return None
 
     def _get_tag_info_by_name(self, tag_path):
@@ -2505,10 +2524,7 @@ class IoTApp(QMainWindow):
             # print(f"[DEBUG] Tag {tag_name_clean} not found in project config")
             return None
         except Exception as e:
-            print(f"[ERROR] Failed to get tag info: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logging.exception("Failed to get tag info")
             return None
 
     def _find_tag_in_tree_by_name(self, tag_path):
@@ -2540,17 +2556,17 @@ class IoTApp(QMainWindow):
                     if node_type == "Tag" and node_text == tag_name_clean:
                         # 找到匹配的標籤
                         tag_data = node.data(0, Qt.ItemDataRole.UserRole)
-                        print(
-                            f"[DEBUG] Found tag node, tag_data type: {type(tag_data)}, value: {tag_data if not isinstance(tag_data, dict) else 'dict'}"
+                        logging.debug(
+                            "Found tag node, tag_data type: %s, value: %s",
+                            type(tag_data),
+                            tag_data if not isinstance(tag_data, dict) else "dict",
                         )
 
                         # 確保返回字典
                         if isinstance(tag_data, dict):
                             return tag_data
                         else:
-                            print(
-                                f"[ERROR] tag_data is not a dict, it's {type(tag_data)}"
-                            )
+                            logging.error("tag_data is not a dict, it's %s", type(tag_data))
                             return None
                 except Exception as e:
                     # print(f"[DEBUG] Error checking node: {e}")
@@ -2574,10 +2590,7 @@ class IoTApp(QMainWindow):
             # print(f"[DEBUG] Tag {tag_name_clean} not found in tree")
             return None
         except Exception as e:
-            print(f"[ERROR] Failed to find tag in tree: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logging.exception("Failed to find tag in tree")
             return None
 
     def _find_tag_by_path(self, tag_path):
@@ -2619,7 +2632,7 @@ class IoTApp(QMainWindow):
 
             return None
         except Exception as e:
-            print(f"[ERROR] Failed to find tag by path: {e}")
+            logging.exception("Failed to find tag by path")
             return None
 
     def _normalize_data_type(self, data_type_raw):
@@ -2792,9 +2805,7 @@ class IoTApp(QMainWindow):
         except Exception as e:
             logger.error(f"[OPC_WRITE] Handler error: {e}")
             # print(f"[OPC_WRITE] Handler error: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logger.exception("OPC write handler error")
             return False
 
     def _execute_tag_write_silent(self, address, fc, value, tag_item):
@@ -2953,9 +2964,7 @@ class IoTApp(QMainWindow):
         except Exception as e:
             logger.error(f"[EXECUTE_WRITE_SILENT] Error: {e}")
             # print(f"[EXECUTE_WRITE_SILENT] Error: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logger.exception("Silent tag write failed")
             return False
 
     def _execute_tag_write(self, address, fc, value, tag_item):
@@ -2969,7 +2978,7 @@ class IoTApp(QMainWindow):
         try:
             # 檢查 Runtime 狀態
             if not hasattr(self, "runtime_monitor") or not self.runtime_monitor:
-                print(f"[ERROR] runtime_monitor not available")
+                logging.error("runtime_monitor not available")
                 QMessageBox.warning(
                     self, "警告", "運行時監視未啟動\n請先點擊 'Runtime' 按鈕啟動"
                 )
@@ -2979,7 +2988,7 @@ class IoTApp(QMainWindow):
             workers = getattr(self.runtime_monitor, "_workers", {})
             # print(f"[EXECUTE_WRITE] workers: {list(workers.keys())}")
             if not workers:
-                print(f"[ERROR] No workers available")
+                logging.error("No workers available")
                 QMessageBox.warning(
                     self,
                     "警告",
@@ -3031,7 +3040,10 @@ class IoTApp(QMainWindow):
             if not worker and workers:
                 config_id = list(workers.keys())[0]
                 worker = workers[config_id]
-                print(f"[WARNING] No exact worker match found, using first worker: {config_id}")
+                logging.warning(
+                    "No exact worker match found, using first worker: %s",
+                    config_id,
+                )
 
             if not worker:
                 available_keys = list(workers.keys()) if workers else "無"
@@ -3114,10 +3126,7 @@ class IoTApp(QMainWindow):
                 QMessageBox.warning(self, "警告", "寫入隊列已滿，請稍後重試")
 
         except Exception as e:
-            print(f"[ERROR] Failed to execute write: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logging.exception("Failed to execute write")
             QMessageBox.critical(self, "錯誤", f"執行寫入失敗: {str(e)}")
 
     def _select_write_function_code(self, tag_item, value):
@@ -3220,9 +3229,7 @@ class IoTApp(QMainWindow):
 
         except Exception as e:
             # print(f"[ERROR] Failed to select FC: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logging.exception("Failed to select function code")
             return 16  # 默認使用 FC 16
 
     def on_delete_selected_tags(self):
@@ -5504,7 +5511,7 @@ class IoTApp(QMainWindow):
             pass
 
         try:
-            print(f"[OPC UA] {message}")
+            logging.info("[OPC UA] %s", message)
         except Exception:
             pass
 
@@ -5583,12 +5590,14 @@ def main():
     # file_handler.setFormatter(file_formatter)
     # root_logger.addHandler(file_handler)
 
-    # 控制台處理器 - 只輸出 CRITICAL 級別以上
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.CRITICAL)
-    console_formatter = logging.Formatter("[%(levelname)s] %(message)s")
-    console_handler.setFormatter(console_formatter)
-    root_logger.addHandler(console_handler)
+    # GUI builds on Windows may not have a usable stderr stream, so avoid
+    # attaching a console-backed handler when frozen without a console.
+    if not (sys.platform == "win32" and getattr(sys, "frozen", False)):
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.CRITICAL)
+        console_formatter = logging.Formatter("[%(levelname)s] %(message)s")
+        console_handler.setFormatter(console_formatter)
+        root_logger.addHandler(console_handler)
 
     # logging.info(f"=== ModUA 啟動 === 日誌文件: {log_file}")  # 已移除日誌文件訊息
 

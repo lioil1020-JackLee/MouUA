@@ -7,6 +7,9 @@ for passing to a pymodbus client (address_type, unit_id, start, count, tags).
 It also contains a small demo when executed as __main__.
 """
 from typing import List, Dict, Any, Tuple
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def group_reads(tags: List[Dict[str, Any]], max_regs: int = 120) -> List[Dict[str, Any]]:
@@ -71,7 +74,14 @@ def demo():
     ]
     batches = group_reads(sample, max_regs=10)
     for b in batches:
-        print(f"Batch: unit={b['unit_id']} type={b['address_type']} start={b['start']} count={b['count']} tags={[t['name'] for t in b['tags']]}")
+        logger.info(
+            "Batch: unit=%s type=%s start=%s count=%s tags=%s",
+            b["unit_id"],
+            b["address_type"],
+            b["start"],
+            b["count"],
+            [t["name"] for t in b["tags"]],
+        )
 
 
 if __name__ == '__main__':

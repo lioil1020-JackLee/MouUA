@@ -607,4 +607,4 @@ if __name__ == "__main__":
         "Encoding": {"byte_order": "big", "word_low": "low_high"},
         "Block Sizes": {"hold_regs": 120}
     }
-    print(map_tag_to_pymodbus(sample_tag, sample_device))
+    logger.info("%s", map_tag_to_pymodbus(sample_tag, sample_device))

@@ -2,10 +2,11 @@ from PyQt6.QtWidgets import QTreeWidget, QTreeWidgetItem, QMenu, QApplication
 from PyQt6.QtCore import Qt, pyqtSignal, QBuffer, QByteArray, QIODevice
 from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QIcon, QPalette
 import base64
+import logging
 
 
 def _is_light_theme():
-    """檢測系統是否為淺色主題"""
+    """檢測系統?�否?�淺?�主�?""
     app = QApplication.instance()
     if app:
         palette = app.palette()
@@ -15,7 +16,7 @@ def _is_light_theme():
 
 
 class ConnectivityTree(QTreeWidget):
-    # 📡 定義操作訊號
+    # ?�� 定義?��?訊�?
     request_new_channel = pyqtSignal(QTreeWidgetItem)
     request_new_device = pyqtSignal(QTreeWidgetItem)
     request_new_group = pyqtSignal(QTreeWidgetItem)
@@ -86,7 +87,7 @@ class ConnectivityTree(QTreeWidget):
             plus_url = _pixmap_to_dataurl(self._plus_icon.pixmap(size))
             minus_url = _pixmap_to_dataurl(self._minus_icon.pixmap(size))
 
-            # 根據系統主題選擇顏色
+            # ?��?系統主�??��?顏色
             if _is_light_theme():
                 bg_color = "#ffffff"
                 text_color = "#000000"
@@ -129,10 +130,8 @@ QTreeWidget::item:selected:hover {{
 """
             self.setStyleSheet(sheet)
         except Exception as e:
-            import traceback
+            logging.exception("Error creating branch symbols")
 
-            print(f"⚠️ Error creating branch symbols: {e}")
-            traceback.print_exc()
 
     def _setup_icons_and_tags(self):
         try:
@@ -227,7 +226,7 @@ QTreeWidget::item:selected:hover {{
         except Exception:
             pass
 
-        # 2. 🟢 建立符合 Project -> Connectivity 的結構（若尚未建立）
+        # 2. ?�� 建�?符�? Project -> Connectivity ?��?構�??��??�建立�?
         try:
             if not getattr(self, "root_node", None):
                 self.root_node = QTreeWidgetItem(self)
@@ -247,7 +246,7 @@ QTreeWidget::item:selected:hover {{
                     pass
         except Exception:
             pass
-        # 確保頂層節點使用與其他節點相同的字型，避免因字型或樣式造成高度差異
+        # 確�??�層節點使?��??��?節點相?��?字�?，避?��?字�??�樣式造�?高度差異
         try:
             default_font = self.font()
             self.root_node.setFont(0, default_font)
@@ -339,7 +338,7 @@ QTreeWidget::item:selected:hover {{
         super().mousePressEvent(event)
 
     def contextMenuEvent(self, event):
-        # 處理右鍵選單邏輯
+        # ?��??�鍵?�單?�輯
         # Qt override - this method is invoked by the framework; keep it even if static analysis flags it.
         item = self.itemAt(event.pos())
         if not item:
@@ -348,34 +347,34 @@ QTreeWidget::item:selected:hover {{
         node_type = item.data(0, Qt.ItemDataRole.UserRole)
         menu = QMenu(self)
 
-        # 根據節點類型顯示不同選單
+        # ?��?節點�??�顯示�??�選??
         if node_type == "Connectivity":
             menu.addAction(
-                "➕ 新增 Channel", lambda: self.request_new_channel.emit(item)
+                "???��? Channel", lambda: self.request_new_channel.emit(item)
             )
         elif node_type == "Channel":
-            menu.addAction("➕ 新增 Device", lambda: self.request_new_device.emit(item))
+            menu.addAction("???��? Device", lambda: self.request_new_device.emit(item))
             menu.addSeparator()
             self._add_common_actions(menu, item)
         elif node_type in ["Device", "Group"]:
-            menu.addAction("➕ 新增 Group", lambda: self.request_new_group.emit(item))
-            menu.addAction("➕ 新增 Tag", lambda: self.request_new_tag.emit(item))
+            menu.addAction("???��? Group", lambda: self.request_new_group.emit(item))
+            menu.addAction("???��? Tag", lambda: self.request_new_tag.emit(item))
             menu.addSeparator()
             self._add_common_actions(menu, item)
             # Diagnostics only for Device (show per-device diagnostics window)
             if node_type == "Device":
                 menu.addSeparator()
                 menu.addAction(
-                    "📊 Diagnostics", lambda: self.request_device_diagnostics.emit(item)
+                    "?? Diagnostics", lambda: self.request_device_diagnostics.emit(item)
                 )
             # CSV import/export only on Device nodes
             if node_type == "Device":
                 menu.addSeparator()
                 menu.addAction(
-                    "📥 匯入 CSV", lambda: self.request_import_csv.emit(item)
+                    "?�� ?�入 CSV", lambda: self.request_import_csv.emit(item)
                 )
                 menu.addAction(
-                    "📤 匯出 CSV", lambda: self.request_export_csv.emit(item)
+                    "?�� ?�出 CSV", lambda: self.request_export_csv.emit(item)
                 )
         elif node_type == "Tag":
             self._add_common_actions(menu, item)
@@ -384,10 +383,10 @@ QTreeWidget::item:selected:hover {{
             menu.exec(event.globalPos())
 
     def _add_common_actions(self, menu, item):
-        # 通用選單動作：剪切、複製、貼上、刪除、內容
-        menu.addAction("✂️ 剪下", lambda: self.request_cut_item.emit(item))
-        menu.addAction("📋 複製", lambda: self.request_copy_item.emit(item))
-        menu.addAction("📥 貼上", lambda: self.request_paste_item.emit(item))
+        # ?�用?�單?��?：剪?�、�?製、貼上、刪?�、內�?
+        menu.addAction("?��? ?��?", lambda: self.request_cut_item.emit(item))
+        menu.addAction("?? 複製", lambda: self.request_copy_item.emit(item))
+        menu.addAction("?�� 貼�?", lambda: self.request_paste_item.emit(item))
         menu.addSeparator()
-        menu.addAction("❌ 刪除", lambda: self.request_delete_item.emit(item))
-        menu.addAction("✏️ 內容", lambda: self.request_edit_item.emit(item))
+        menu.addAction("???�除", lambda: self.request_delete_item.emit(item))
+        menu.addAction("?��? ?�容", lambda: self.request_edit_item.emit(item))
