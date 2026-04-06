@@ -29,12 +29,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Install dependencies
-        shell: bash
-        run: |
-          uv venv
-          source .venv/bin/activate 2>/dev/null || . .venv/Scripts/activate
-          uv pip install pyinstaller
-          if [ -f requirements.txt ]; then uv pip install -r requirements.txt; fi
+        run: uv sync --group dev
 
       # --- Windows 編譯與打包 ---
       - name: Build (Windows)

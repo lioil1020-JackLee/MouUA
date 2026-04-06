@@ -1,7 +1,7 @@
 [project]
 name = "modua"
 version = "1.2.0"
-description = "Add your description here"
+description = "Modbus to OPC UA bridge with a PyQt6 desktop UI"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -19,3 +19,6 @@ dependencies = [
 dev = [
     "pyinstaller>=6.18.0",
 ]
+
+[tool.uv]
+package = false
